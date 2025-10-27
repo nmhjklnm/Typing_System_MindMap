@@ -398,6 +398,450 @@ use_logger(adapter)  # ✅ 统一接口
 
 ---
 
+### [x] **外观模式（Facade Pattern）**
+
+**概念**：为复杂的子系统提供一个简单的统一接口。隐藏系统的复杂性，提供一个高层接口让子系统更易使用。
+
+**为什么需要**：
+- 简化复杂 API：对外提供简单接口
+- 隐藏底层细节：用户不需要了解内部实现
+- 降低耦合：子系统变化不影响外部使用
+- 提高可读性：一行代码完成复杂操作
+
+**核心要素**：
+- 复杂的子系统（多个类协同工作）
+- 外观类（封装子系统，提供简单接口）
+- 客户端只与外观交互
+
+**应用场景**：
+- 视频处理：转换需要协调解码器、编码器、音频处理等
+- 订单处理：创建订单需要库存检查、支付、发货等多步骤
+- 邮件发送：组装邮件需要 SMTP、MIME、附件处理等
+- SDK 封装：将复杂的第三方 API 封装成简单接口
+
+**与适配器的区别**：
+- **适配器**：接口转换，一对一（让不兼容的接口协同工作）
+- **外观**：简化接口，一对多（为复杂子系统提供简单入口）
+
+**Python 特性结合**：
+- 使用类方法封装复杂流程
+- 可以结合工厂模式创建外观
+- 返回类型使用简单类型
+
+**example**：
+```python
+# 复杂的子系统
+class VideoFile:
+    """视频文件类"""
+    def __init__(self, filename: str):
+        self.filename = filename
+        self.codec_type = self._detect_codec()
+    
+    def _detect_codec(self) -> str:
+        # 复杂的编解码器检测逻辑
+        return "h264"
+
+class AudioMixer:
+    """音频混合器"""
+    def fix(self, video: VideoFile) -> str:
+        # 复杂的音频处理逻辑
+        return "fixed_audio"
+
+class BitrateReader:
+    """比特率读取器"""
+    def read(self, video: VideoFile) -> int:
+        # 复杂的比特率计算
+        return 1920
+
+class CodecFactory:
+    """编解码器工厂"""
+    @staticmethod
+    def extract(video: VideoFile) -> str:
+        # 根据视频类型提取编解码器
+        return video.codec_type
+
+# 外观类：简化接口
+class VideoConverter:
+    """视频转换外观
+    
+    隐藏了视频转换的所有复杂细节：
+    - 编解码器检测和提取
+    - 音频处理
+    - 比特率调整
+    - 格式转换
+    
+    对外只提供一个简单的 convert 方法
+    """
+    
+    def convert(self, filename: str, target_format: str) -> str:
+        """转换视频格式（一行代码搞定）
+        
+        Args:
+            filename: 源文件名
+            target_format: 目标格式（"mp4", "avi", "mkv" 等）
+        
+        Returns:
+            转换后的文件名
+        """
+        # 内部协调多个复杂子系统
+        print(f"开始转换 {filename} -> {target_format}")
+        
+        # 1. 加载视频
+        video = VideoFile(filename)
+        
+        # 2. 提取编解码器
+        codec = CodecFactory.extract(video)
+        print(f"检测到编解码器: {codec}")
+        
+        # 3. 处理音频
+        audio = AudioMixer().fix(video)
+        print(f"音频处理完成: {audio}")
+        
+        # 4. 读取比特率
+        bitrate = BitrateReader().read(video)
+        print(f"比特率: {bitrate}")
+        
+        # 5. 执行转换（实际项目中会调用 ffmpeg 等）
+        output = filename.rsplit(".", 1)[0] + f".{target_format}"
+        print(f"转换完成: {output}")
+        
+        return output
+
+# 使用：非常简单！
+converter = VideoConverter()
+
+# ✅ 一行代码完成复杂的视频转换
+converter.convert("movie.avi", "mp4")
+converter.convert("video.mkv", "avi")
+
+# 如果没有外观，用户需要：
+# video = VideoFile("movie.avi")
+# codec = CodecFactory.extract(video)
+# audio = AudioMixer().fix(video)
+# bitrate = BitrateReader().read(video)
+# ... 自己协调所有步骤
+```
+
+**实际应用示例：订单处理外观**
+```python
+class OrderFacade:
+    """订单处理外观"""
+    
+    def __init__(self):
+        # 内部依赖多个子系统
+        self.inventory = InventoryService()
+        self.payment = PaymentService()
+        self.shipping = ShippingService()
+        self.notification = NotificationService()
+    
+    def place_order(self, user_id: str, items: list[str]) -> str:
+        """下单（一行代码完成）
+        
+        内部协调：
+        1. 检查库存
+        2. 处理支付
+        3. 创建发货单
+        4. 发送通知
+        """
+        # 1. 检查库存
+        if not self.inventory.check_available(items):
+            raise ValueError("库存不足")
+        
+        # 2. 处理支付
+        order_id = self.payment.charge(user_id, items)
+        
+        # 3. 减少库存
+        self.inventory.decrease(items)
+        
+        # 4. 创建发货单
+        self.shipping.create_shipment(order_id, items)
+        
+        # 5. 发送通知
+        self.notification.send_order_confirmation(user_id, order_id)
+        
+        return order_id
+
+# 使用：外部调用非常简单
+facade = OrderFacade()
+order_id = facade.place_order("user-123", ["item-1", "item-2"])
+```
+
+---
+
+### [x] **依赖注入（Dependency Injection）** ⭐⭐⭐
+
+**概念**：不在类内部创建依赖对象，而是从外部传入（注入）。将依赖关系的创建和使用分离。
+
+**为什么需要**：
+- **解耦**：类不依赖具体实现，只依赖接口
+- **可测试**：可以注入 mock 对象进行单元测试
+- **灵活**：运行时可以切换不同的实现
+- **符合依赖倒置原则**：高层模块不依赖低层模块，都依赖抽象
+
+**核心要素**：
+- 依赖接口（Protocol）：定义依赖的规范
+- 依赖实现：具体的实现类
+- 注入方式：通过构造函数、setter 或属性注入
+
+**注入方式**：
+1. **构造函数注入**（推荐）：在 `__init__` 中传入依赖
+2. **属性注入**：直接设置属性
+3. **方法注入**：通过方法参数传入
+
+**应用场景**：
+- 服务层依赖数据访问层
+- 控制器依赖业务服务
+- 测试时注入 mock 对象
+- 配置不同环境的实现
+
+**设计原则本质**：
+依赖注入本质上是**依赖倒置原则（DIP）**的实现方式，是一种**设计原则**，但因其重要性和普遍性，通常作为结构型模式讨论。
+
+**Python 特性结合**：
+- 使用 Protocol 定义依赖接口
+- 类型提示让 IDE 可以检查依赖
+- 可以结合工厂模式创建依赖
+
+**你的 queue 项目已经在用了！**
+
+**example**：
+```python
+from typing import Protocol
+
+# 1. 定义依赖接口
+class TaskQueue(Protocol):
+    """任务队列接口（依赖抽象）"""
+    async def add_task(self, task: Task) -> None: ...
+    async def get_pending_tasks(self) -> list[Task]: ...
+
+# 2. 具体实现
+class SQLiteTaskQueue:
+    async def add_task(self, task: Task) -> None:
+        # SQLite 实现
+        pass
+    
+    async def get_pending_tasks(self) -> list[Task]:
+        # SQLite 实现
+        return []
+
+# 3. 依赖注入（构造函数注入）
+class TaskWorker:
+    """任务工作器
+    
+    ✅ 好的设计：依赖从外部注入
+    - 不关心 queue 是 SQLite 还是 Redis
+    - 可以轻松切换实现
+    - 可以注入 mock 对象测试
+    """
+    
+    def __init__(self, queue: TaskQueue):  # 🔥 依赖注入！
+        self.queue = queue  # 从外部传入，不在内部创建
+    
+    async def process(self):
+        """处理任务"""
+        tasks = await self.queue.get_pending_tasks()
+        for task in tasks:
+            # 处理任务...
+            pass
+
+# 4. 使用：在外部创建依赖并注入
+# 生产环境
+prod_queue = SQLiteTaskQueue(db_path="prod.db")
+prod_worker = TaskWorker(prod_queue)  # 注入 SQLite 队列
+
+# 测试环境
+class MockQueue:
+    """测试用的 mock 队列"""
+    async def add_task(self, task: Task) -> None:
+        pass
+    
+    async def get_pending_tasks(self) -> list[Task]:
+        return [Task(id="test-1", name="测试任务")]
+
+test_queue = MockQueue()
+test_worker = TaskWorker(test_queue)  # 注入 mock 队列
+```
+
+**对比：不使用依赖注入（坏的设计）**
+```python
+class TaskWorker:
+    """❌ 坏的设计：内部创建依赖"""
+    
+    def __init__(self):
+        self.queue = SQLiteTaskQueue()  # ❌ 硬编码依赖
+        # 问题：
+        # 1. 无法切换到 Redis
+        # 2. 无法测试（无法注入 mock）
+        # 3. 与 SQLiteTaskQueue 强耦合
+```
+
+**测试时的优势**
+```python
+import pytest
+from unittest.mock import AsyncMock
+
+@pytest.mark.asyncio
+async def test_process_tasks():
+    """测试任务处理（使用 mock 依赖）"""
+    
+    # 创建 mock 队列
+    mock_queue = AsyncMock()
+    mock_queue.get_pending_tasks.return_value = [
+        Task(id="test-1", name="测试任务")
+    ]
+    
+    # 注入 mock 依赖
+    worker = TaskWorker(mock_queue)
+    await worker.process()
+    
+    # 验证
+    assert mock_queue.get_pending_tasks.called
+```
+
+---
+
+### [x] **仓储模式（Repository Pattern）** ⭐⭐
+
+**概念**：将数据访问逻辑封装在仓储类中，为业务层提供类似集合（Collection）的接口来操作数据。业务层不直接操作数据库。
+
+**为什么需要**：
+- **抽象数据访问**：业务层不关心数据存储在哪里（MySQL、MongoDB、内存）
+- **集中管理查询**：所有数据访问逻辑集中在一处
+- **便于测试**：可以使用内存仓储替代数据库
+- **易于切换存储**：从 SQLite 迁移到 PostgreSQL 只需改仓储实现
+
+**核心要素**：
+- 仓储接口（Protocol）：定义数据访问方法
+- 具体仓储：实现具体的存储逻辑
+- 实体对象：业务实体（如 User、Task）
+- 业务层只依赖仓储接口
+
+**典型方法**：
+- `find_by_id(id)`: 根据 ID 查询
+- `find_by_xxx(value)`: 根据属性查询
+- `find_all()`: 查询所有
+- `save(entity)`: 保存实体
+- `delete(id)`: 删除实体
+
+**应用场景**：
+- 用户数据访问：UserRepository
+- 订单数据访问：OrderRepository
+- 任务数据访问：TaskRepository（你的 queue 项目就是这个！）
+- 商品数据访问：ProductRepository
+
+**Python 特性结合**：
+- 使用 Protocol 定义仓储接口
+- 使用 async/await 处理异步数据访问
+- 返回领域对象（dataclass、pydantic 模型）
+
+**你的 queue 项目本质上就是仓储模式！**
+
+**example**：
+```python
+from typing import Protocol, Optional
+from dataclasses import dataclass
+
+# 1. 实体对象
+@dataclass
+class User:
+    id: str
+    email: str
+    name: str
+
+# 2. 仓储接口（Protocol）
+class UserRepository(Protocol):
+    """用户仓储接口
+    
+    提供类似集合的操作接口：
+    - 查询：find_by_id, find_by_email, find_all
+    - 修改：save, delete
+    """
+    
+    async def find_by_id(self, user_id: str) -> Optional[User]: ...
+    async def find_by_email(self, email: str) -> Optional[User]: ...
+    async def find_all(self, limit: int = 100) -> list[User]: ...
+    async def save(self, user: User) -> None: ...
+    async def delete(self, user_id: str) -> None: ...
+
+# 3. 具体实现：SQLite 仓储
+class SQLiteUserRepository:
+    """SQLite 用户仓储"""
+    
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+    
+    async def find_by_id(self, user_id: str) -> Optional[User]:
+        # SELECT * FROM users WHERE id = ?
+        return None
+    
+    async def save(self, user: User) -> None:
+        # INSERT OR REPLACE INTO users ...
+        pass
+    
+    # ... 其他方法
+
+# 4. 业务层：只依赖仓储接口
+class UserService:
+    """用户服务（业务层）"""
+    
+    def __init__(self, repository: UserRepository):
+        self.users = repository  # 依赖注入仓储
+    
+    async def register(self, email: str, name: str) -> User:
+        """注册用户"""
+        # 1. 检查邮箱是否存在
+        existing = await self.users.find_by_email(email)
+        if existing:
+            raise ValueError("邮箱已存在")
+        
+        # 2. 创建用户
+        user = User(id=generate_id(), email=email, name=name)
+        await self.users.save(user)
+        
+        return user
+
+# 5. 使用：切换存储非常简单
+# 生产环境
+sqlite_repo = SQLiteUserRepository("prod.db")
+prod_service = UserService(sqlite_repo)
+
+# 测试环境
+class InMemoryUserRepository:
+    """内存用户仓储（测试用）"""
+    def __init__(self):
+        self._users: dict[str, User] = {}
+    
+    async def find_by_id(self, user_id: str) -> Optional[User]:
+        return self._users.get(user_id)
+    
+    async def save(self, user: User) -> None:
+        self._users[user.id] = user
+
+test_repo = InMemoryUserRepository()
+test_service = UserService(test_repo)
+```
+
+**你的 queue 项目示例**
+```python
+# TaskQueue 就是一个任务仓储！
+class TaskQueue(Protocol):  # 仓储接口
+    async def add_task(self, task: Task) -> None: ...  # save
+    async def get_task(self, task_id: str) -> Optional[Task]: ...  # find_by_id
+    async def get_pending_tasks(self) -> list[Task]: ...  # find_all (with filter)
+
+# 不同的实现（存储后端）
+class SQLiteTaskQueue: ...  # SQLite 仓储
+class RedisTaskQueue: ...   # Redis 仓储
+class InMemoryTaskQueue: ...  # 内存仓储
+
+# 业务层（Worker）只依赖接口
+class TaskWorker:
+    def __init__(self, queue: TaskQueue):  # 依赖仓储接口
+        self.queue = queue
+```
+
+---
+
 ## **3. 行为型模式**
 
 ### [x] **策略模式（Strategy Pattern）**
@@ -664,9 +1108,14 @@ def unstable_function():
 | **Mixin** | 结构型 | 功能混入 | 代码复用、灵活组合 | 时间戳、序列化 |
 | **协议模式** | 结构型 | 定义接口规范 | 鸭子类型、类型检查 | 任务队列、数据处理 |
 | **适配器模式** | 结构型 | 接口转换 | 统一接口、兼容旧代码 | 第三方库集成 |
+| **外观模式** | 结构型 | 简化复杂接口 | 隐藏细节、易用性 | 视频转换、订单处理 |
+| **依赖注入** ⭐ | 结构型 | 解耦依赖关系 | 可测试、可替换 | 服务层、测试 mock |
+| **仓储模式** | 结构型 | 抽象数据访问 | 隔离存储、易切换 | 用户/订单/任务数据访问 |
 | **策略模式** | 行为型 | 算法可替换 | 避免 if-else、易扩展 | 支付方式、排序算法 |
 | **观察者模式** | 行为型 | 状态变化通知 | 解耦、事件驱动 | 任务监听、UI 事件 |
 | **装饰器模式** | 行为型 | 动态添加功能 | 不修改原代码、可叠加 | 日志、计时、缓存 |
+
+> **说明**：⭐ 标记的模式在现代开发中极其重要，强烈推荐掌握
 
 ---
 
@@ -693,6 +1142,22 @@ class TaskQueue(Protocol):
 class Task(TimestampMixin):
     # 自动获得 created_at、updated_at
     pass
+```
+
+#### ✅ **依赖注入** - `TaskWorker`
+```python
+# worker.py
+class TaskWorker:
+    def __init__(self, queue: TaskQueue):  # 🔥 依赖注入
+        self.queue = queue  # 从外部传入，不在内部创建
+```
+
+#### ✅ **仓储模式** - `TaskQueue` 本质上是任务仓储
+```python
+# TaskQueue 提供类似集合的接口操作任务
+# - add_task() → save()
+# - get_task() → find_by_id()
+# - get_pending_tasks() → find_all(filter)
 ```
 
 ### **可以添加的模式**
@@ -736,15 +1201,23 @@ async def process_task(task: Task) -> str:
 
 ### **何时使用？**
 
-1. **工厂模式**：当你需要根据配置/参数创建不同类型的对象
-2. **单例模式**：当你需要全局唯一的资源（谨慎使用，可能导致测试困难）
-3. **建造者模式**：当构造函数参数超过 5 个，或构建过程复杂
-4. **Mixin**：当多个类需要相同的辅助功能（时间戳、序列化等）
-5. **协议模式**：当你需要定义接口，但不想强制继承（推荐！）
-6. **适配器模式**：当你需要集成接口不兼容的第三方库
-7. **策略模式**：当你有多个算法/实现，且需要运行时切换
-8. **观察者模式**：当一个对象状态改变需要通知多个其他对象
-9. **装饰器模式**：当你需要动态添加功能（日志、缓存、权限检查等）
+**创建型模式**：
+1. **工厂模式**：需要根据配置/参数创建不同类型的对象
+2. **单例模式**：需要全局唯一的资源（谨慎使用，可能导致测试困难）
+3. **建造者模式**：构造函数参数超过 5 个，或构建过程复杂
+
+**结构型模式**（最多！）：
+4. **Mixin**：多个类需要相同的辅助功能（时间戳、序列化等）
+5. **协议模式**：需要定义接口，但不想强制继承（推荐！）
+6. **适配器模式**：需要集成接口不兼容的第三方库
+7. **外观模式**：需要简化复杂子系统的使用
+8. **依赖注入** ⭐：类有外部依赖时，始终使用（可测试性的关键）
+9. **仓储模式** ⭐：需要数据访问层时，隔离业务逻辑和存储细节
+
+**行为型模式**：
+10. **策略模式**：有多个算法/实现，且需要运行时切换
+11. **观察者模式**：一个对象状态改变需要通知多个其他对象
+12. **装饰器模式**：需要动态添加功能（日志、缓存、权限检查等）
 
 ### **不要过度设计**
 
@@ -792,13 +1265,58 @@ async def process_task(task: Task) -> str:
 - 需要全局唯一实例 → **单例模式**
 - 参数太多、构建复杂 → **建造者模式**
 
-### **组合类时**
+### **组合类与依赖时**（结构型）
 - 需要混入辅助功能 → **Mixin**
 - 需要定义接口规范 → **协议模式**
 - 需要统一不同接口 → **适配器模式**
+- 需要简化复杂子系统 → **外观模式**
+- **类有外部依赖** → **依赖注入** ⭐（始终使用，可测试性关键）
+- **需要数据访问层** → **仓储模式** ⭐（隔离存储细节）
 
 ### **处理行为时**
 - 需要切换算法 → **策略模式**
 - 需要状态通知 → **观察者模式**
 - 需要动态添加功能 → **装饰器模式**
+
+---
+
+## **附录：12 个模式的本质总结**
+
+### **核心价值**
+
+这 12 个模式解决了软件开发中的核心问题：
+
+1. **如何创建对象？**（创建型 3 个） → 工厂、单例、建造者
+2. **如何组合功能？**（结构型 6 个） → Mixin、协议、适配器、外观、**依赖注入**、**仓储**
+3. **如何处理变化？**（行为型 3 个） → 策略、观察者、装饰器
+
+### **最重要的三个模式** ⭐⭐⭐
+
+如果只学三个，就学这三个：
+
+1. **依赖注入**：可测试性的基础，现代开发必备
+2. **协议模式**：Python 的接口定义，优于抽象基类
+3. **工厂模式**：配置驱动，解耦创建逻辑
+
+### **其余 23 种 GoF 模式为什么不推荐？**
+
+| 模式 | 不推荐原因 |
+|------|-----------|
+| **迭代器** | Python 原生支持（`__iter__`、`__next__`） |
+| **命令模式** | 一等函数直接传递即可 |
+| **模板方法** | 继承就能实现，太简单 |
+| **享元模式** | 现代硬件很少需要共享对象节省内存 |
+| **桥接模式** | Python 组合足够灵活 |
+| **组合模式** | 用得少，场景特殊（树形结构） |
+| **代理模式** | 与装饰器、外观重叠 |
+| **责任链模式** | 用得少，中间件模式更常见 |
+| **备忘录模式** | 99% 项目用不到 |
+| **访问者模式** | 在 Python 鸭子类型下很别扭 |
+| **中介者模式** | 消息队列/事件总线更常见 |
+| **状态模式** | 策略模式的特例 |
+| **原型模式** | `copy.deepcopy()` 解决 |
+| **抽象工厂** | 工厂模式的变种，过度设计 |
+| **解释器模式** | 99.9% 的人一辈子用不到 |
+
+**结论**：这 12 个模式已经涵盖了 95% 的实际场景。其余模式要么被语言特性取代，要么使用频率极低。专注于这 12 个，够用了！
 
