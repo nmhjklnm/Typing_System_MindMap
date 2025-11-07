@@ -1,10 +1,10 @@
 # Python Typing & Collections Mindmaps
 
-<p>
+<p align="center" style="font-size:1.1em;">
   <strong>在线访问:</strong>
-  <a href="https://github.com/nmhjklnm/Typing_System_MindMap" target="_blank" style="display:inline-flex;align-items:center;gap:4px;">
-    <img src="https://github.githubassets.com/favicons/favicon.svg" alt="Docs" style="width:18px;">
-    <span>Docs</span>
+  <a href="https://github.com/nmhjklnm/Typing_System_MindMap" target="_blank" 
+     style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600; color:#0366d6;">
+    📘 <span>Docs</span>
   </a>
 </p>
 
